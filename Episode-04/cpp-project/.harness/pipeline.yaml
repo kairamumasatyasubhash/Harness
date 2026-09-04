@@ -23,7 +23,7 @@ pipeline:
         # This connector is at ACCOUNT level (Account Settings → Connectors)
         # We created this in Episode 1
         connectorRef: account.Github
-        repoName: Harness-CI-CD-Zero-to-Hero
+        repoName: Harness
         build: <+input>
   # Runtime Inputs: user selects version and environment when running
   variables:
