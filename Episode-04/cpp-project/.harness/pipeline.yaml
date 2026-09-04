@@ -12,7 +12,7 @@ pipeline:
   name: cpp-enterprise-ci-pipeline
   identifier: cpp_enterprise_ci_pipeline
   # CHANGE THIS: Your project ID
-  projectIdentifier: HarnessCICDZerotoHero
+  projectIdentifier: new-github
   # CHANGE THIS: Your org
   orgIdentifier: default
   tags: {}
