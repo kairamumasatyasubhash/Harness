@@ -11,7 +11,7 @@
 pipeline:
   name: cpp-enterprise-ci-pipeline
   identifier: cpp_enterprise_ci_pipeline
-  projectIdentifier: 3rd-Project
+  projectIdentifier: rdProject
   orgIdentifier: default
   tags: {}
   properties:
