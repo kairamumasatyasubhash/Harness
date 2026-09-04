@@ -11,17 +11,12 @@
 pipeline:
   name: cpp-enterprise-ci-pipeline
   identifier: cpp_enterprise_ci_pipeline
-  # CHANGE THIS: Your project ID
-  projectIdentifier: new-github
-  # CHANGE THIS: Your org
+  projectIdentifier: 3rd-Project
   orgIdentifier: default
   tags: {}
   properties:
     ci:
       codebase:
-        # CHANGE THIS: Your GitHub connector
-        # This connector is at ACCOUNT level (Account Settings → Connectors)
-        # We created this in Episode 1
         connectorRef: account.Github
         repoName: Harness
         build: <+input>
