@@ -27,7 +27,7 @@ pipeline:
     ci:
       codebase:
         # CHANGE THIS: Your GitHub connector
-        connectorRef: git-ep3
+        connectorRef: gitep3
         # CHANGE THIS: Your repo name
         repoName: Harness
         build: <+input>
