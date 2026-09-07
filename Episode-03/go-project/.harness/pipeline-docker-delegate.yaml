@@ -4,45 +4,35 @@ pipeline:
   projectIdentifier: terraformproject
   orgIdentifier: default
   tags: {}
-
   properties:
     ci:
       codebase:
         connectorRef: gitep3
         repoName: Harness
         build: <+input>
-
   stages:
     - stage:
         name: build-go
         identifier: build_go
         description: Build, test, push Go app
         type: CI
-
         spec:
           cloneCodebase: true
-
           platform:
             os: Linux
             arch: Amd64
-
           runtime:
             type: Docker
             spec: {}
-
           execution:
             steps:
-
-              # Step 1: Run unit tests
               - step:
                   type: Run
                   name: Run Tests
                   identifier: run_tests
-
                   spec:
                     shell: Sh
                     image: golang:1.21-alpine
-
                     command: |-
                       echo "=== Step 1: Running Go Tests ==="
 
@@ -51,18 +41,13 @@ pipeline:
                       go test -v ./...
 
                       echo "=== All Tests Passed! ==="
-
-
-              # Step 2: Lint Check
               - step:
                   type: Run
                   name: Lint Check
                   identifier: lint_check
-
                   spec:
                     shell: Sh
                     image: golangci/golangci-lint:latest
-
                     command: |-
                       echo "=== Step 2: Running Lint Check ==="
 
@@ -71,18 +56,13 @@ pipeline:
                       golangci-lint run ./... || echo "Lint warnings found (non-blocking)"
 
                       echo "=== Lint Check Done! ==="
-
-
-              # Step 3: Code Coverage
               - step:
                   type: Run
                   name: Code Coverage
                   identifier: code_coverage
-
                   spec:
                     shell: Sh
                     image: golang:1.21-alpine
-
                     command: |-
                       echo "=== Step 3: Code Coverage ==="
 
@@ -97,18 +77,13 @@ pipeline:
                       echo "Total Coverage: $COVERAGE"
 
                       echo "=== Coverage Done! ==="
-
-
-              # Step 4: Build Go binary
               - step:
                   type: Run
                   name: Build App
                   identifier: build_app
-
                   spec:
                     shell: Sh
                     image: golang:1.21-alpine
-
                     command: |-
                       echo "=== Step 4: Building Go App ==="
 
@@ -119,18 +94,13 @@ pipeline:
                       ls -lh main
 
                       echo "=== Build Successful! ==="
-
-
-              # Step 5: Run app and verify
               - step:
                   type: Run
                   name: Verify App
                   identifier: verify_app
-
                   spec:
                     shell: Sh
                     image: golang:1.21-alpine
-
                     command: |-
                       echo "=== Step 5: Verifying App ==="
 
@@ -155,41 +125,25 @@ pipeline:
                       echo "=== App Verified! ==="
 
                       kill $APP_PID 2>/dev/null || true
-
-
-              # Step 6: Build and Push Docker image
               - step:
                   type: BuildAndPushDockerRegistry
                   name: Build and Push to Docker Hub
                   identifier: build_push_docker
-
                   spec:
                     connectorRef: docker
-
-                    # IMPORTANT:
-                    # Use the real Docker Hub username.
-                    # Do not use <+variable.docker_username>
-                    # because it was resolving to null.
                     repo: kairamsubhash/go-harness-app
-
                     tags:
                       - <+pipeline.sequenceId>
                       - latest
-
                     dockerfile: Episode-03/go-project/Dockerfile
                     context: Episode-03/go-project
-
-
-              # Step 7: Verify Docker Hub push
               - step:
                   type: Run
                   name: Verify Push
                   identifier: verify_push
-
                   spec:
                     shell: Sh
                     image: alpine:latest
-
                     command: |-
                       echo "=== Step 7: Verifying Image on Docker Hub ==="
 
@@ -210,18 +164,13 @@ pipeline:
                       echo "https://hub.docker.com/r/kairamsubhash/go-harness-app"
 
                       echo "=== Verification Done! ==="
-
-
-              # Step 8: Pipeline Complete
               - step:
                   type: Run
                   name: Pipeline Complete
                   identifier: pipeline_complete
-
                   spec:
                     shell: Sh
                     image: alpine:latest
-
                     command: |-
                       echo "========================================="
                       echo "  PIPELINE COMPLETE!"
@@ -236,18 +185,13 @@ pipeline:
                       echo ""
                       echo "  Image: kairamsubhash/go-harness-app:<+pipeline.sequenceId>"
                       echo "========================================="
-
-
-              # Step 9: Verify success
               - step:
                   type: Run
                   name: Verify Success
                   identifier: verify_success
-
                   spec:
                     shell: Sh
                     image: alpine:latest
-
                     command: |-
                       echo "=== Step 9: Final Verification ==="
 
@@ -265,18 +209,13 @@ pipeline:
                       echo "https://hub.docker.com/r/kairamsubhash/go-harness-app"
 
                       echo "=== All Good! ==="
-
-
-              # Step 10: Wait before cleanup
               - step:
                   type: Run
                   name: Wait Before Cleanup
                   identifier: wait_cleanup
-
                   spec:
                     shell: Sh
                     image: alpine:latest
-
                     command: |-
                       echo "=== Step 10: Waiting 1 minute before cleanup ==="
 
