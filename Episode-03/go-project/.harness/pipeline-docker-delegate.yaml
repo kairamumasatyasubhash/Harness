@@ -103,7 +103,7 @@ pipeline:
                   identifier: build_push_docker
                   spec:
                     connectorRef: docker
-                    repo: <+variable.docker_username>/go-harness-app
+                    repo: kairamsubhash/go-harness-app
                     tags:
                       - <+pipeline.sequenceId>
                       - latest
@@ -119,14 +119,14 @@ pipeline:
                     command: |-
                       echo "=== Step 7: Verifying Image on Docker Hub ==="
                       apk add --no-cache curl > /dev/null 2>&1
-                      STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://hub.docker.com/v2/repositories/<+variable.docker_username>/go-harness-app/tags/<+pipeline.sequenceId>/)
+                      STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://hub.docker.com/v2/repositories/kairamsubhash/go-harness-app/tags/<+pipeline.sequenceId>/)
                       if [ "$STATUS" = "200" ]; then
                         echo "✅ Image tag <+pipeline.sequenceId> EXISTS on Docker Hub!"
                       else
                         echo "❌ Image NOT found (status: $STATUS)"
                       fi
                       echo ""
-                      echo "View: https://hub.docker.com/r/<+variable.docker_username>/go-harness-app"
+                      echo "View: https://hub.docker.com/r/kairamsubhash/go-harness-app"
                       echo "=== Verification Done! ==="
               - step:
                   type: Run
@@ -147,7 +147,7 @@ pipeline:
                       echo "  Step 6: Docker image pushed ✅"
                       echo "  Step 7: Push verified ✅"
                       echo ""
-                      echo "  Image: <+variable.docker_username>/go-harness-app:<+pipeline.sequenceId>"
+                      echo "  Image: kairamsubhash/go-harness-app:<+pipeline.sequenceId>"
                       echo "========================================="
               - step:
                   type: Run
@@ -159,10 +159,10 @@ pipeline:
                     command: |-
                       echo "=== Step 9: Final Verification ==="
                       apk add --no-cache curl > /dev/null 2>&1
-                      echo "Image: <+variable.docker_username>/go-harness-app:<+pipeline.sequenceId>"
-                      echo "Image: <+variable.docker_username>/go-harness-app:latest"
+                      echo "Image: kairamsubhash/go-harness-app:<+pipeline.sequenceId>"
+                      echo "Image: kairamsubhash/go-harness-app:latest"
                       echo ""
-                      echo "Docker Hub: https://hub.docker.com/r/<+variable.docker_username>/go-harness-app"
+                      echo "Docker Hub: https://hub.docker.com/r/kairamsubhash/go-harness-app"
                       echo "=== All Good! ==="
               - step:
                   type: Run
@@ -185,13 +185,13 @@ pipeline:
                     command: |-
                       echo "=== Step 11: Deleting Docker Hub Repository ==="
                       apk add --no-cache curl python3 > /dev/null 2>&1
-                      TOKEN=$(curl -s -H "Content-Type: application/json" -X POST -d '{"username":"<+variable.docker_username>","password":"<+secrets.getValue("docker-hub-password")>"}' https://hub.docker.com/v2/users/login/ | python3 -c "import sys,json; print(json.load(sys.stdin)['token'])")
+                      TOKEN=$(curl -s -H "Content-Type: application/json" -X POST -d '{"username":"kairamsubhash","password":"<+secrets.getValue("docker-hub-password")>"}' https://hub.docker.com/v2/users/login/ | python3 -c "import sys,json; print(json.load(sys.stdin)['token'])")
                       echo "Deleting repository: <+variable.docker_username>/go-harness-app"
-                      curl -s -X DELETE -H "Authorization: JWT $TOKEN" https://hub.docker.com/v2/repositories/<+variable.docker_username>/go-harness-app/
+                      curl -s -X DELETE -H "Authorization: JWT $TOKEN" https://hub.docker.com/v2/repositories/kairamsubhash/go-harness-app/
                       echo ""
                       sleep 5
                       echo "=== Verifying Deletion ==="
-                      STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://hub.docker.com/v2/repositories/<+variable.docker_username>/go-harness-app/)
+                      STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://hub.docker.com/v2/repositories/kairamsubhash/go-harness-app/)
                       if [ "$STATUS" = "404" ]; then
                         echo "✅ Repository DELETED successfully!"
                       else
