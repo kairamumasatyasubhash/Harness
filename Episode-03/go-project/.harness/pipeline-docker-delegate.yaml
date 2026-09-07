@@ -19,7 +19,7 @@ pipeline:
   name: go-docker-delegate-pipeline
   identifier: go_docker_delegate_pipeline
   # CHANGE THIS: Your project ID
-  projectIdentifier: HarnessCICDZerotoHero
+  projectIdentifier: terraform-project
   # CHANGE THIS: Your org name
   orgIdentifier: default
   tags: {}
@@ -27,9 +27,9 @@ pipeline:
     ci:
       codebase:
         # CHANGE THIS: Your GitHub connector
-        connectorRef: account.Github
+        connectorRef: git-ep3
         # CHANGE THIS: Your repo name
-        repoName: Harness-CI-CD-Zero-to-Hero
+        repoName: Harness
         build: <+input>
   stages:
     - stage:
