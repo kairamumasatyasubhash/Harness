@@ -1,135 +1,242 @@
-# ============================================
-# PIPELINE: Terraform on Harness Cloud
-# Creates VPC + EC2 or Destroys everything
-# ============================================
-# PREREQUISITES:
-#   1. S3 bucket created manually (for Terraform state)
-#   2. Secrets in Harness:
-#      - aws_access_key_id (AWS Access Key)
-#      - aws_secret_access_key (AWS Secret Key)
-#   3. Variables in Harness:
-#      - s3_bucket_name (your state bucket)
-#      - aws_region (us-east-1)
-#
-# WHY secrets needed here:
-#   OIDC connector works for Harness features (deploy, etc.)
-#   But Terraform CLI needs AWS_ACCESS_KEY_ID + SECRET as env vars
-#   Harness Cloud Run step cannot pass OIDC token to terraform CLI
-#
-# HOW TO USE:
-#   Run pipeline → Choose: "apply" or "destroy"
-#
-# CHANGE THESE:
-#   - projectIdentifier
-#   - orgIdentifier
-#   - connectorRef (GitHub)
-#   - secret names (if different)
-# ============================================
-pipeline:
-  name: terraform-infra-pipeline
-  identifier: terraform_infra_pipeline
-  # CHANGE THIS: Your project ID
-  projectIdentifier: HarnessCICDZerotoHero
-  # CHANGE THIS: Your org
+ pipeline:
+  name: terraform-gcp-pipeline
+  identifier: terraform_gcp_pipeline
+
+  # 🟢 YOUR HARNESS PROJECT
+  projectIdentifier: terraformproject
   orgIdentifier: default
-  tags: {}
+
   properties:
     ci:
       codebase:
-        # CHANGE THIS: Your GitHub connector
-        connectorRef: account.Github
-        repoName: Harness-CI-CD-Zero-to-Hero
-        build: <+input>
-  # Runtime input: user picks "apply" or "destroy"
+        # 🟢 YOUR GITHUB CONNECTOR
+        connectorRef: gitep3
+
+        # 🟢 YOUR GITHUB REPOSITORY
+        repoName: Harness
+
+        build:
+          type: branch
+          spec:
+            branch: main
+
   variables:
+
+    # 🟡 Choose apply or destroy when running the pipeline
     - name: tf_action
       type: String
       description: "Choose: apply or destroy"
       value: <+input>.allowedValues(apply,destroy)
+
+    # 🟢 YOUR GCP PROJECT
+    - name: gcp_project_id
+      type: String
+      value: lhs-507905
+
+    # 🟢 YOUR GCP REGION
+    - name: gcp_region
+      type: String
+      value: us-central1
+
+    # 🟢 YOUR GCP ZONE
+    - name: gcp_zone
+      type: String
+      value: us-central1-a
+
+    # 🔴 YOU DON'T HAVE THIS YET
+    # You must create a GCS bucket before running Terraform Init.
+    - name: gcs_bucket_name
+      type: String
+      value: <+input>
+
   stages:
+
     - stage:
         name: terraform
         identifier: terraform
-        description: "Apply or Destroy AWS infrastructure"
+        description: "Run Terraform on GCP"
         type: CI
+
         spec:
           cloneCodebase: true
+
           platform:
             os: Linux
             arch: Amd64
+
           runtime:
             type: Cloud
             spec: {}
+
           execution:
             steps:
-              # Step 1: Terraform Init
+
+              # ==========================================
+              # TERRAFORM INIT
+              # ==========================================
+
               - step:
                   type: Run
                   name: Terraform Init
                   identifier: tf_init
+
                   spec:
                     shell: Sh
-                    envVariables:
-                      # CHANGE THIS: Your AWS secret names in Harness
-                      AWS_ACCESS_KEY_ID: <+secrets.getValue("aws_access_key_id")>
-                      AWS_SECRET_ACCESS_KEY: <+secrets.getValue("aws_secret_access_key")>
-                      AWS_DEFAULT_REGION: <+variable.aws_region>
-                    command: |-
-                      echo "=== Terraform Init ==="
-                      cd Episode-03/terraform-project
-                      terraform init \
-                        -backend-config="bucket=<+variable.s3_bucket_name>" \
-                        -backend-config="key=harness-demo/terraform.tfstate" \
-                        -backend-config="region=<+variable.aws_region>"
-                      echo "=== Init Done! ==="
 
-              # Step 2: Terraform Plan
+                    envVariables:
+
+                      # 🟢 YOUR HARNESS SECRET
+                      GOOGLE_CREDENTIALS: <+secrets.getValue("gcp_service_account")>
+
+                      # 🟢 YOUR GCP PROJECT
+                      GOOGLE_PROJECT: <+variable.gcp_project_id>
+
+                      # 🟢 YOUR GCP REGION
+                      GOOGLE_REGION: <+variable.gcp_region>
+
+                      # 🟢 YOUR GCP ZONE
+                      GOOGLE_ZONE: <+variable.gcp_zone>
+
+                    command: |-
+                      echo "======================================"
+                      echo "Creating GCP credential file"
+                      echo "======================================"
+
+                      printf '%s' "$GOOGLE_CREDENTIALS" > /tmp/gcp-key.json
+
+                      export GOOGLE_APPLICATION_CREDENTIALS=/tmp/gcp-key.json
+
+                      echo "GCP Project:"
+                      echo "$GOOGLE_PROJECT"
+
+                      echo "GCP Region:"
+                      echo "$GOOGLE_REGION"
+
+                      echo "GCP Zone:"
+                      echo "$GOOGLE_ZONE"
+
+                      echo "======================================"
+                      echo "Terraform Init"
+                      echo "======================================"
+
+                      cd terraform
+
+                      terraform init \
+                        -backend-config="bucket=<+variable.gcs_bucket_name>" \
+                        -backend-config="prefix=harness-demo"
+
+              # ==========================================
+              # TERRAFORM PLAN
+              # ==========================================
+
               - step:
                   type: Run
                   name: Terraform Plan
                   identifier: tf_plan
+
                   spec:
                     shell: Sh
-                    envVariables:
-                      AWS_ACCESS_KEY_ID: <+secrets.getValue("aws_access_key_id")>
-                      AWS_SECRET_ACCESS_KEY: <+secrets.getValue("aws_secret_access_key")>
-                      AWS_DEFAULT_REGION: <+variable.aws_region>
-                    command: |-
-                      echo "=== Terraform Plan (action: <+pipeline.variables.tf_action>) ==="
-                      cd Episode-03/terraform-project
-                      if [ "<+pipeline.variables.tf_action>" = "destroy" ]; then
-                        terraform plan -destroy -no-color
-                      else
-                        terraform plan -no-color
-                      fi
-                      echo "=== Plan Done! ==="
 
-              # Step 3: Terraform Apply or Destroy
+                    envVariables:
+
+                      # 🟢 YOUR HARNESS SECRET
+                      GOOGLE_CREDENTIALS: <+secrets.getValue("gcp_service_account")>
+
+                      # 🟢 YOUR GCP PROJECT
+                      GOOGLE_PROJECT: <+variable.gcp_project_id>
+
+                      # 🟢 YOUR GCP REGION
+                      GOOGLE_REGION: <+variable.gcp_region>
+
+                      # 🟢 YOUR GCP ZONE
+                      GOOGLE_ZONE: <+variable.gcp_zone>
+
+                    command: |-
+                      echo "======================================"
+                      echo "Creating GCP credential file"
+                      echo "======================================"
+
+                      printf '%s' "$GOOGLE_CREDENTIALS" > /tmp/gcp-key.json
+
+                      export GOOGLE_APPLICATION_CREDENTIALS=/tmp/gcp-key.json
+
+                      echo "======================================"
+                      echo "Terraform Plan"
+                      echo "======================================"
+
+                      cd terraform
+
+                      if [ "<+pipeline.variables.tf_action>" = "destroy" ]; then
+
+                        echo "Planning Terraform DESTROY"
+
+                        terraform plan -destroy -no-color
+
+                      else
+
+                        echo "Planning Terraform APPLY"
+
+                        terraform plan -no-color
+
+                      fi
+
+              # ==========================================
+              # TERRAFORM EXECUTE
+              # ==========================================
+
               - step:
                   type: Run
                   name: Terraform Execute
                   identifier: tf_execute
+
                   spec:
                     shell: Sh
+
                     envVariables:
-                      AWS_ACCESS_KEY_ID: <+secrets.getValue("aws_access_key_id")>
-                      AWS_SECRET_ACCESS_KEY: <+secrets.getValue("aws_secret_access_key")>
-                      AWS_DEFAULT_REGION: <+variable.aws_region>
+
+                      # 🟢 YOUR HARNESS SECRET
+                      GOOGLE_CREDENTIALS: <+secrets.getValue("gcp_service_account")>
+
+                      # 🟢 YOUR GCP PROJECT
+                      GOOGLE_PROJECT: <+variable.gcp_project_id>
+
+                      # 🟢 YOUR GCP REGION
+                      GOOGLE_REGION: <+variable.gcp_region>
+
+                      # 🟢 YOUR GCP ZONE
+                      GOOGLE_ZONE: <+variable.gcp_zone>
+
                     command: |-
-                      echo "=== Terraform <+pipeline.variables.tf_action> ==="
-                      cd Episode-03/terraform-project
+                      echo "======================================"
+                      echo "Creating GCP credential file"
+                      echo "======================================"
+
+                      printf '%s' "$GOOGLE_CREDENTIALS" > /tmp/gcp-key.json
+
+                      export GOOGLE_APPLICATION_CREDENTIALS=/tmp/gcp-key.json
+
+                      echo "======================================"
+                      echo "Terraform Execute"
+                      echo "======================================"
+
+                      cd terraform
+
                       if [ "<+pipeline.variables.tf_action>" = "destroy" ]; then
+
+                        echo "Destroying GCP infrastructure"
+
                         terraform destroy -auto-approve -no-color
-                        echo ""
-                        echo "========================================="
-                        echo "  DESTROYED! All resources deleted."
-                        echo "  AWS bill for these resources: $0"
-                        echo "========================================="
+
                       else
+
+                        echo "Creating GCP infrastructure"
+
                         terraform apply -auto-approve -no-color
-                        echo ""
-                        echo "========================================="
-                        echo "  CREATED!"
+
+                        echo "======================================"
+                        echo "Terraform Outputs"
+                        echo "======================================"
+
                         terraform output
-                        echo "========================================="
+
                       fi
