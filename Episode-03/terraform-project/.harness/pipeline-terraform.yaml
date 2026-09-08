@@ -47,7 +47,7 @@
     # You must create a GCS bucket before running Terraform Init.
     - name: gcs_bucket_name
       type: String
-      value: <+input>
+      value: lhs-507905
 
   stages:
 
