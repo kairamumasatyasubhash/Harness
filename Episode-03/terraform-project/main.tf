@@ -1,136 +1,177 @@
 # ============================================
-# Creates: VPC + Public Subnet + EC2 Instance
-# State: Stored in S3 bucket
+# Creates:
+# VPC + Public Subnet + Firewall + VM
+#
+# GCP Project : lhs-507905
+# Region      : us-central1
+# Zone        : us-central1-a
+#
+# State: Local
+# No GCS backend
 # ============================================
 
 terraform {
   required_version = ">= 1.3.0"
 
   required_providers {
-    aws = {
-      source  = "hashicorp/aws"
-      version = "~> 5.0"
+    google = {
+      source  = "hashicorp/google"
+      version = "~> 6.0"
+    }
+  }
+}
+
+# ============================================
+# GCP PROVIDER
+# ============================================
+
+provider "google" {
+  project = var.gcp_project_id
+  region  = var.gcp_region
+  zone    = var.gcp_zone
+}
+
+# ============================================
+# VARIABLES
+# ============================================
+
+variable "gcp_project_id" {
+  description = "GCP Project ID"
+  type        = string
+  default     = "lhs-507905"
+}
+
+variable "gcp_region" {
+  description = "GCP Region"
+  type        = string
+  default     = "us-central1"
+}
+
+variable "gcp_zone" {
+  description = "GCP Zone"
+  type        = string
+  default     = "us-central1-a"
+}
+
+# ============================================
+# VPC NETWORK
+# AWS VPC → GCP VPC Network
+# ============================================
+
+resource "google_compute_network" "demo" {
+  name                    = "harness-demo-vpc"
+  auto_create_subnetworks = false
+}
+
+# ============================================
+# PUBLIC SUBNET
+# AWS Subnet → GCP Subnetwork
+# ============================================
+
+resource "google_compute_subnetwork" "demo" {
+  name          = "harness-demo-subnet"
+  ip_cidr_range = "10.0.1.0/24"
+  region        = var.gcp_region
+  network       = google_compute_network.demo.id
+}
+
+# ============================================
+# INTERNET ROUTE
+# AWS Route Table → GCP Route
+# ============================================
+
+resource "google_compute_route" "internet" {
+  name             = "harness-demo-internet-route"
+  network          = google_compute_network.demo.name
+  dest_range       = "0.0.0.0/0"
+  next_hop_gateway = "default-internet-gateway"
+  priority         = 1000
+}
+
+# ============================================
+# FIREWALL RULE
+# AWS Security Group → GCP Firewall
+#
+# Allows TCP traffic from the internet.
+# ============================================
+
+resource "google_compute_firewall" "demo" {
+  name    = "harness-demo-firewall"
+  network = google_compute_network.demo.name
+
+  allow {
+    protocol = "tcp"
+    ports = [
+      "22",
+      "80",
+      "443"
+    ]
+  }
+
+  source_ranges = [
+    "0.0.0.0/0"
+  ]
+
+  target_tags = [
+    "harness-demo"
+  ]
+}
+
+# ============================================
+# COMPUTE ENGINE VM
+# AWS EC2 → GCP Compute Engine
+# ============================================
+
+resource "google_compute_instance" "demo" {
+  name         = "harness-demo-vm"
+  machine_type = "e2-micro"
+  zone         = var.gcp_zone
+
+  tags = [
+    "harness-demo"
+  ]
+
+  boot_disk {
+    initialize_params {
+      image = "debian-cloud/debian-12"
+      size  = 10
+      type  = "pd-balanced"
     }
   }
 
-  # State stored in S3 (bucket must exist already)
-  backend "s3" {}
-}
+  network_interface {
+    subnetwork = google_compute_subnetwork.demo.id
 
-provider "aws" {
-  region = var.aws_region
-}
+    access_config {
+      # Creates an ephemeral public IP
+    }
+  }
 
-variable "aws_region" {
-  default = "us-east-1"
-}
-
-# VPC
-resource "aws_vpc" "demo" {
-  cidr_block           = "10.0.0.0/16"
-  enable_dns_hostnames = true
-
-  tags = {
-    Name = "harness-demo-vpc"
+  metadata = {
+    enable-oslogin = "TRUE"
   }
 }
 
-# Internet Gateway
-resource "aws_internet_gateway" "demo" {
-  vpc_id = aws_vpc.demo.id
+# ============================================
+# OUTPUTS
+# ============================================
 
-  tags = {
-    Name = "harness-demo-igw"
-  }
-}
-
-# Public Subnet
-resource "aws_subnet" "demo" {
-  vpc_id                  = aws_vpc.demo.id
-  cidr_block              = "10.0.1.0/24"
-  availability_zone       = "${var.aws_region}a"
-  map_public_ip_on_launch = true
-
-  tags = {
-    Name = "harness-demo-subnet"
-  }
-}
-
-# Route Table
-resource "aws_route_table" "demo" {
-  vpc_id = aws_vpc.demo.id
-
-  route {
-    cidr_block = "0.0.0.0/0"
-    gateway_id = aws_internet_gateway.demo.id
-  }
-
-  tags = {
-    Name = "harness-demo-rt"
-  }
-}
-
-resource "aws_route_table_association" "demo" {
-  subnet_id      = aws_subnet.demo.id
-  route_table_id = aws_route_table.demo.id
-}
-
-# Security Group (all traffic)
-resource "aws_security_group" "demo" {
-  name_prefix = "harness-demo-"
-  vpc_id      = aws_vpc.demo.id
-
-  ingress {
-    from_port   = 0
-    to_port     = 65535
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  tags = {
-    Name = "harness-demo-sg"
-  }
-}
-
-# Get latest Amazon Linux 2023 AMI
-data "aws_ami" "al2023" {
-  most_recent = true
-  owners      = ["amazon"]
-
-  filter {
-    name   = "name"
-    values = ["al2023-ami-*-x86_64"]
-  }
-}
-
-# EC2 Instance
-resource "aws_instance" "demo" {
-  ami                    = data.aws_ami.al2023.id
-  instance_type          = "t2.micro"
-  subnet_id              = aws_subnet.demo.id
-  vpc_security_group_ids = [aws_security_group.demo.id]
-
-  tags = {
-    Name = "harness-demo-ec2"
-  }
-}
-
-# Outputs
 output "vpc_id" {
-  value = aws_vpc.demo.id
+  description = "GCP VPC Network ID"
+  value       = google_compute_network.demo.id
 }
 
-output "ec2_public_ip" {
-  value = aws_instance.demo.public_ip
+output "subnet_id" {
+  description = "GCP Subnetwork ID"
+  value       = google_compute_subnetwork.demo.id
 }
 
-output "ec2_instance_id" {
-  value = aws_instance.demo.id
+output "vm_public_ip" {
+  description = "GCP VM Public IP"
+  value       = google_compute_instance.demo.network_interface[0].access_config[0].nat_ip
+}
+
+output "vm_instance_id" {
+  description = "GCP VM Instance ID"
+  value       = google_compute_instance.demo.id
 }
